@@ -1,0 +1,115 @@
+Prompts para recuperação de fluxo:
+
+Os prompts a seguir podem ser usados para recuparação de fluxo do desenvolvimento, abaixo colocarei os prompts iniciais mais recentes usados para fornecer contexto a uma LLM. Recomendo fazer o upload dos codigos (lambda orquestradora- em partes devido ao tamanho, template.yml, index.html e chatbot.html, lex_inegration.js e chatbot.js), Os arquivos ,ais atualizados dentro da pasta SAM-TEST no repositorio do github. Proximos passos recomedados: validação da arquitetura (correção do problema de integralçao do front com o Lex) e deploy do ambiente SAM no console (so pedir que a IA guia direitinho).
+
+prompt 1:
+
+Você esta participando de um processo em andamento, Vou começar enviando informações, prossiga com as respostas apenas quando permitir, peça validação no final de cada mensagem. Caso faltem informações, pergunte, não assuma nada. A maior parte da estrutura ja esta pronta e devemos nos manter consistentes a ela.
+
+prompt 2:
+
+🔍 ANÁLISE DA ARQUITETURA ATUAL:
+✅ Arquitetura Implementada:
+text
+Frontend (LexChatbot) → Amazon Lex Runtime → Lambda (DentalClaimsProcessor)
+❌ Problemas para Teste E2E via SAM:
+Formato de Evento Incompatível:
+
+Frontend envia: AWS.LexRuntime.postText()
+
+SAM API recebe: HTTP POST /api/lex-proxy
+
+São protocolos completamente diferentes
+
+Estado de Sessão Complexo:
+
+Lex gerencia session attributes automaticamente
+
+Nosso mock teria que replicar toda lógica de estado do Lex
+
+Fluxo Conversacional:
+
+Frontend espera ElicitSlot, ConfirmIntent, Fulfilled
+
+Nossa API retorna respostas fechadas
+
+🚀 PRÓXIMOS PASSOS ADEQUADOS:
+1. ✅ TESTES JÁ REALIZADOS (Validados):
+Lambda core - todos os fluxos funcionando
+
+API Gateway - endpoints respondendo
+
+Integração serviços - Bedrock, DynamoDB, SNS
+
+Lógica de negócio - pré-aprovação, reembolso, busca
+
+2. 🎯 PRÓXIMOS PASSOS RECOMENDADOS:
+A. DEPLOY PARA AWS (Prioridade)
+bash
+sam deploy --guided
+Por quê? Seu código está pronto para produção. O ambiente real vai:
+
+Configurar Lex Bot corretamente
+
+Provisionar Cognito Identity Pool
+
+Estabelecer a arquitetura completa
+
+B. CONFIGURAR LEX BOT na AWS
+Criar Bot Lex com as intenções
+
+Configurar Lambda hook
+
+Configurar Cognito para frontend
+
+C. TESTES PÓS-DEPLOY
+Testar frontend com Lex real
+
+Validar integração completa
+
+Ajustes finos de UX
+
+3. 📊 ESTADO ATUAL DO MVP:
+Componente	Status	Próxima Ação
+Lambda Core	✅ Pronto	Deploy
+Frontend UI	✅ Pronto	Integrar com Lex real
+API Gateway	✅ Testado	Deploy
+Lex Integration	⚠️ Precisa AWS	Configurar Bot
+Testes E2E	🔄 Via AWS	Pós-deploy
+4. 🎪 ALTERNATIVAS (NÃO RECOMENDADAS):
+Opção X: Refatorar para API Custom
+❌ Reescrever frontend
+
+❌ Perder benefícios do Lex
+
+❌ Complexidade desnecessária
+
+Opção Y: Mock Complexo
+❌ Replicar lógica do Lex
+
+❌ Manutenção custosa
+
+❌ Não representa produção
+
+🏁 RECOMENDAÇÃO FINAL:
+Prossiga com sam deploy --guided - sua arquitetura está bem fundamentada e os testes locais já validaram os componentes críticos.
+
+Comando para Deploy:
+bash
+sam deploy --guided --stack-name iamigos-dental --region us-east-1
+O que esperar pós-deploy:
+✅ URL da API no Output do CloudFormation
+
+⚙️ Configurar Lex Bot manualmente (primeira vez)
+
+🌐 Frontend funcionando com AWS real
+
+Você concorda em prosseguir com o deploy? Essa é a forma mais eficiente de validar a integração completa. 🚀
+
+prompt 3:
+
+Vou enviar a lambda orquestradora, o template e uma foto da estrutura de arquivos criados para contexto e para você inferir o funcionamento do restante da arquitetura, devido ao limite de tokens, farei o upload no seguinte formato: lambda orquestradora fragmentada, dividida em varias classes, o template yml, e a foto da estrutura de arquivos no VS code, não necessariamente nessa ordem. prossiga somente quando todas essas informações estiverem presentes e continue validando no final de cada resposta.
+
+prompt 4: 
+
+Faça o envio dos codigos, e a partir daqui o modelo deve ter um entendimento suficiente da arquitetura para dar respostas confiaveis, prossiga com o fluxo de desejar.

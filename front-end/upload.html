@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reembolso - IAmigos Dental</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/upload.css" />
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="header">
+      <div class="container">
+        <div class="logo-section">
+          <a href="index.html" class="logo-link">
+            <img src="assets/images/logo.png" alt="IAmigos Dental" class="logo" />
+          </a>
+          <span class="logo-text">IAmigos Dental</span>
+        </div>
+
+        <nav class="nav">
+          <a href="index.html" class="nav-link">Início</a>
+          <a href="chatbot.html" class="nav-link">Pré-Aprovação</a>
+          <a href="upload.html" class="nav-link active">Reembolso</a>
+          <a href="clinics.html" class="nav-link">Dentistas</a>
+          <a href="status.html" class="nav-link">Meus Pedidos</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="container">
+        <div class="page-header">
+          <h1>Solicitar Reembolso</h1>
+          <p class="page-description">Envie sua nota fiscal e receba o reembolso de forma rápida e automatizada</p>
+        </div>
+
+        <div class="upload-layout">
+          <!-- Informações do Processo -->
+          <aside class="upload-info">
+            <div class="info-card">
+              <h3>📋 Como Funciona</h3>
+              <ol class="steps-list">
+                <li>Preencha os dados do procedimento</li>
+                <li>Faça upload da nota fiscal</li>
+                <li>Nossa IA extrai as informações automaticamente</li>
+                <li>Validamos a cobertura do seu plano</li>
+                <li>Você recebe o resultado em minutos</li>
+              </ol>
+            </div>
+
+            <div class="info-card">
+              <h3>📄 Documentos Aceitos</h3>
+              <ul class="documents-list">
+                <li>
+                  <span class="doc-icon">🖼️</span>
+                  <span class="doc-info">
+                    <strong>Imagens</strong>
+                    <span>JPG, PNG (máx. 5MB)</span>
+                  </span>
+                </li>
+                <li>
+                  <span class="doc-icon">📄</span>
+                  <span class="doc-info">
+                    <strong>PDF</strong>
+                    <span>Documentos digitalizados</span>
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            <div class="info-card">
+              <h3>💡 Dicas Importantes</h3>
+              <ul class="tips-list">
+                <li>Certifique-se que a nota fiscal está legível</li>
+                <li>Inclua todos os valores e descrições</li>
+                <li>Verifique se contém CNPJ do consultório</li>
+                <li>Mantenha o arquivo sob 5MB</li>
+              </ul>
+            </div>
+
+            <div class="info-card support-card">
+              <h3>🆘 Precisa de Ajuda?</h3>
+              <p>Entre em contato com nosso suporte:</p>
+              <div class="support-info">
+                <p>📞 <strong>(11) 9999-9999</strong></p>
+                <p>✉️ <strong>suporte@iamigos.com</strong></p>
+              </div>
+            </div>
+          </aside>
+
+          <!-- Formulário Principal -->
+          <div class="upload-main">
+            <div class="upload-container">
+              <!-- Progress Steps -->
+              <div class="progress-steps">
+                <div class="step active" data-step="1">
+                  <div class="step-number">1</div>
+                  <div class="step-label">Dados do Procedimento</div>
+                </div>
+                <div class="step" data-step="2">
+                  <div class="step-number">2</div>
+                  <div class="step-label">Upload do Documento</div>
+                </div>
+                <div class="step" data-step="3">
+                  <div class="step-number">3</div>
+                  <div class="step-label">Confirmação</div>
+                </div>
+              </div>
+
+              <!-- Step 1: Dados do Procedimento -->
+              <div class="form-step active" id="step1">
+                <form id="procedureForm" class="procedure-form">
+                  <div class="form-section">
+                    <h3>Informações Pessoais</h3>
+
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="patientName" class="form-label">Nome Completo *</label>
+                        <input type="text" id="patientName" class="form-control" required />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="patientCPF" class="form-label">CPF *</label>
+                        <input
+                          type="text"
+                          id="patientCPF"
+                          class="form-control"
+                          data-mask="cpf"
+                          maxlength="14"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="patientEmail" class="form-label">E-mail *</label>
+                        <input type="email" id="patientEmail" class="form-control" required />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="patientPhone" class="form-label">Telefone *</label>
+                        <input type="tel" id="patientPhone" class="form-control" required />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-section">
+                    <h3>Detalhes do Procedimento</h3>
+
+                    <div class="form-group">
+                      <label for="planTier" class="form-label">Plano Dental *</label>
+                      <select id="planTier" class="form-control" required>
+                        <option value="">Selecione seu plano</option>
+                        <option value="basic">Basic - Cobertura 70%</option>
+                        <option value="premium">Premium - Cobertura 90%</option>
+                        <option value="vip">VIP - Cobertura 95%</option>
+                      </select>
+                    </div>
+
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="procedureDate" class="form-label">Data do Procedimento *</label>
+                        <input type="date" id="procedureDate" class="form-control" required />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="procedureValue" class="form-label">Valor do Procedimento (R$) *</label>
+                        <input type="number" id="procedureValue" class="form-control" step="0.01" min="0" required />
+                      </div>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="procedureDescription" class="form-label">Descrição do Procedimento *</label>
+                      <textarea
+                        id="procedureDescription"
+                        class="form-control"
+                        rows="3"
+                        placeholder="Ex: Restauração, limpeza, extração..."
+                        required
+                      ></textarea>
+                    </div>
+                  </div>
+
+                  <div class="form-section">
+                    <h3>Informações do Consultório</h3>
+
+                    <div class="form-group">
+                      <label for="clinicName" class="form-label">Nome do Consultório/Dentista *</label>
+                      <input type="text" id="clinicName" class="form-control" required />
+                    </div>
+
+                    <div class="form-group">
+                      <label for="clinicCNPJ" class="form-label">CNPJ do Consultório</label>
+                      <input
+                        type="text"
+                        id="clinicCNPJ"
+                        class="form-control"
+                        placeholder="Opcional - será extraído automaticamente"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="resetForm()">🔄 Limpar</button>
+                    <button type="button" class="btn btn-primary" onclick="nextStep()">Continuar 📄</button>
+                  </div>
+                </form>
+              </div>
+
+              <!-- Step 2: Upload do Documento -->
+              <div class="form-step" id="step2">
+                <div class="upload-section">
+                  <h3>Upload da Nota Fiscal</h3>
+                  <p class="section-description">Faça upload da nota fiscal ou recibo do procedimento dental</p>
+
+                  <div class="upload-area" id="uploadArea">
+                    <div class="upload-placeholder">
+                      <div class="upload-icon">📄</div>
+                      <h4>Arraste e solte o arquivo aqui</h4>
+                      <p>ou</p>
+                      <button
+                        type="button"
+                        class="btn btn-outline"
+                        onclick="document.getElementById('fileInput').click()"
+                      >
+                        Selecione o arquivo
+                      </button>
+                      <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.pdf" hidden />
+                    </div>
+                  </div>
+
+                  <div class="file-preview" id="filePreview">
+                    <div class="preview-header">
+                      <h4>Arquivo Selecionado</h4>
+                      <button type="button" class="btn-remove" onclick="removeFile()">×</button>
+                    </div>
+                    <div class="preview-content">
+                      <div class="file-info">
+                        <span class="file-icon" id="fileIcon">📄</span>
+                        <div class="file-details">
+                          <span class="file-name" id="fileName">-</span>
+                          <span class="file-size" id="fileSize">-</span>
+                        </div>
+                      </div>
+                      <div class="file-progress">
+                        <div class="progress-bar">
+                          <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <span class="progress-text" id="progressText">0%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="upload-requirements">
+                    <h5>Requisitos do Arquivo:</h5>
+                    <ul>
+                      <li>Formatos aceitos: JPG, PNG, PDF</li>
+                      <li>Tamanho máximo: 5MB</li>
+                      <li>Documento deve estar legível</li>
+                      <li>Incluir valores e identificação</li>
+                    </ul>
+                  </div>
+
+                  <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="prevStep()">← Voltar</button>
+                    <button type="button" class="btn btn-primary" id="processButton" onclick="processReimbursement()">
+                      Processar Reembolso 🤖
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 3: Confirmação -->
+              <div class="form-step" id="step3">
+                <div class="confirmation-section">
+                  <div class="confirmation-header">
+                    <div class="confirmation-icon">✅</div>
+                    <h3>Solicitação Enviada com Sucesso!</h3>
+                    <p>Seu pedido de reembolso está sendo processado</p>
+                  </div>
+
+                  <div class="confirmation-details">
+                    <div class="detail-card">
+                      <h4>Resumo da Solicitação</h4>
+                      <div class="detail-grid">
+                        <div class="detail-item">
+                          <label>Número do Pedido:</label>
+                          <span id="confirmationId">-</span>
+                        </div>
+                        <div class="detail-item">
+                          <label>Data de Envio:</label>
+                          <span id="confirmationDate">-</span>
+                        </div>
+                        <div class="detail-item">
+                          <label>Valor Solicitado:</label>
+                          <span id="confirmationValue">-</span>
+                        </div>
+                        <div class="detail-item">
+                          <label>Status:</label>
+                          <span class="status-badge processing" id="confirmationStatus">Processando</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="processing-info">
+                      <h5>O que acontece agora?</h5>
+                      <ol>
+                        <li>Nossa IA está extraindo informações da nota fiscal</li>
+                        <li>Validamos a cobertura do seu plano</li>
+                        <li>Processamos o pedido de reembolso</li>
+                        <li>Você receberá uma notificação por e-mail</li>
+                      </ol>
+                      <p class="estimated-time"><strong>Tempo estimado:</strong> 2-5 minutos</p>
+                    </div>
+                  </div>
+
+                  <div class="confirmation-actions">
+                    <button type="button" class="btn btn-primary" onclick="trackStatus()">📊 Acompanhar Status</button>
+                    <button type="button" class="btn btn-secondary" onclick="newReimbursement()">
+                      📄 Nova Solicitação
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Processamento em Andamento -->
+              <div class="processing-overlay" id="processingOverlay">
+                <div class="processing-content">
+                  <div class="processing-icon">
+                    <div class="loading-dots">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
+                  </div>
+                  <h3>Processando Reembolso</h3>
+                  <p>Estamos analisando seu documento com IA</p>
+                  <div class="processing-steps">
+                    <div class="processing-step active">
+                      <span class="step-check">✓</span>
+                      <span>Validando arquivo</span>
+                    </div>
+                    <div class="processing-step">
+                      <span class="step-check"></span>
+                      <span>Extraindo dados do documento</span>
+                    </div>
+                    <div class="processing-step">
+                      <span class="step-check"></span>
+                      <span>Verificando cobertura</span>
+                    </div>
+                    <div class="processing-step">
+                      <span class="step-check"></span>
+                      <span>Processando reembolso</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-section">
+            <h4>IAmigos Dental</h4>
+            <p>Soluções inovadoras para seguros dentais</p>
+          </div>
+          <div class="footer-section">
+            <h4>Suporte</h4>
+            <p>suporte@iamigos.com</p>
+            <p>(11) 9999-9999</p>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/lex-integration.js"></script>
+    <script src="assets/js/upload.js"></script>
+  </body>
+</html>

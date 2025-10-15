@@ -1,0 +1,11 @@
+{
+  "currentIntent": {
+    "name": "SolicitarReembolso",
+    "slots": {
+      "documentKey": "documento-teste.jpg",
+      "planoDental": "basic",
+      "valorProcedimento": "150.00"
+    }
+  },
+  "sessionAttributes": {}
+}

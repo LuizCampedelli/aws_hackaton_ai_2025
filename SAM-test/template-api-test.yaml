@@ -1,0 +1,25 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  DentalClaimsProcessor:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      CodeUri: .
+      Timeout: 180
+      MemorySize: 512
+      Environment:
+        Variables:
+          DYNAMO_TABLE: iamigos-dental-claims-dev
+          DOCUMENTS_BUCKET: iamigos-documents-dev
+          SNS_TOPIC_CLIENTES: arn:aws:sns:us-east-1:123456789012:iamigos-client-notifications-dev
+          SNS_TOPIC_DENTISTAS: arn:aws:sns:us-east-1:123456789012:iamigos-dentist-notifications-dev
+          BEDROCK_MODEL_ID: amazon.titan-text-express-v1
+      Events:
+        ProxyApi:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: any

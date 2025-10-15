@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pré-Aprovação - IAmigos Dental</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/lex-chat.css" />
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="header">
+      <div class="container">
+        <div class="logo-section">
+          <a href="index.html" class="logo-link">
+            <img src="assets/images/logo.png" alt="IAmigos Dental" class="logo" />
+          </a>
+          <span class="logo-text">IAmigos Dental</span>
+        </div>
+
+        <nav class="nav">
+          <a href="index.html" class="nav-link">Início</a>
+          <a href="chatbot.html" class="nav-link active">Pré-Aprovação</a>
+          <a href="upload.html" class="nav-link">Reembolso</a>
+          <a href="clinics.html" class="nav-link">Dentistas</a>
+          <a href="status.html" class="nav-link">Meus Pedidos</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="container">
+        <div class="page-header">
+          <h1>Assistente de Pré-Aprovação</h1>
+          <p class="page-description">
+            Converse com nosso assistente IA para uma pré-aprovação rápida do seu tratamento dental
+          </p>
+        </div>
+
+        <div class="chat-layout">
+          <!-- Sidebar com informações -->
+          <aside class="chat-sidebar">
+            <div class="sidebar-section">
+              <h3>📋 Como Funciona</h3>
+              <ol class="steps-list">
+                <li>Descreva seus sintomas</li>
+                <li>Informe seu plano dental</li>
+                <li>Forneça sua localização</li>
+                <li>Receba a análise com IA</li>
+                <li>Encontre dentistas próximos</li>
+              </ol>
+            </div>
+
+            <div class="sidebar-section">
+              <h3>💡 Dicas</h3>
+              <ul class="tips-list">
+                <li>Seja específico sobre seus sintomas</li>
+                <li>Mencione há quanto tempo sente o desconforto</li>
+                <li>Informe se já fez algum tratamento anterior</li>
+                <li>Descreva a intensidade da dor (leve, moderada, forte)</li>
+              </ul>
+            </div>
+
+            <div class="sidebar-section">
+              <h3>🆘 Emergências</h3>
+              <div class="emergency-info">
+                <p><strong>Procure atendimento imediato se tiver:</strong></p>
+                <ul>
+                  <li>Inchaço facial significativo</li>
+                  <li>Dificuldade para respirar ou engolir</li>
+                  <li>Sangramento que não para</li>
+                  <li>Dor insuportável</li>
+                </ul>
+              </div>
+            </div>
+          </aside>
+
+          <!-- Área principal do chat -->
+          <div class="chat-main">
+            <div class="chat-container">
+              <!-- Cabeçalho do Chat -->
+              <div class="chat-header">
+                <div class="chat-header-info">
+                  <h2>Assistente Dental IAmigos</h2>
+                  <div class="chat-status" id="chatStatus">
+                    <span class="status-indicator online"></span>
+                    <span class="status-text">Conectado</span>
+                  </div>
+                </div>
+                <div class="chat-header-actions">
+                  <button class="btn btn-outline btn-small" onclick="resetChat()" title="Nova Conversa">
+                    🔄 Nova Conversa
+                  </button>
+                </div>
+              </div>
+
+              <!-- Mensagens do Chat -->
+              <div class="chat-messages" id="chatMessages">
+                <!-- Mensagem de boas-vindas -->
+                <div class="message bot-message welcome-message">
+                  <div class="message-avatar">🤖</div>
+                  <div class="message-content">
+                    <h4>Olá! Sou seu assistente dental IAmigos 👋</h4>
+                    <p>Estou aqui para ajudar com sua pré-aprovação. Para começar, preciso de algumas informações:</p>
+                    <ul>
+                      <li><strong>Seus sintomas principais</strong> - O que você está sentindo?</li>
+                      <li><strong>Seu plano dental</strong> - Basic, Premium ou outro?</li>
+                      <li><strong>Sua localização</strong> - CEP para encontrar dentistas próximos</li>
+                    </ul>
+                    <p>Vamos começar? Por favor, descreva o que está sentindo.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Estado de Carregamento -->
+              <div class="chat-loading" id="chatLoading">
+                <div class="loading-content">
+                  <div class="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <p>Analisando com IA...</p>
+                </div>
+              </div>
+
+              <!-- Resultados da Análise -->
+              <div class="analysis-results" id="analysisResults">
+                <div class="results-header">
+                  <h3>📊 Resultado da Análise</h3>
+                  <button class="btn-close" onclick="hideResults()">×</button>
+                </div>
+                <div class="results-grid">
+                  <div class="result-card">
+                    <div class="result-icon">🩺</div>
+                    <div class="result-info">
+                      <label>Condição Identificada</label>
+                      <span id="resultCondition" class="result-value">-</span>
+                    </div>
+                  </div>
+                  <div class="result-card">
+                    <div class="result-icon">⚠️</div>
+                    <div class="result-info">
+                      <label>Nível de Urgência</label>
+                      <span id="resultUrgency" class="result-value urgency-badge">-</span>
+                    </div>
+                  </div>
+                  <div class="result-card">
+                    <div class="result-icon">✅</div>
+                    <div class="result-info">
+                      <label>Status da Pré-Aprovação</label>
+                      <span id="resultApproval" class="result-value approval-badge">-</span>
+                    </div>
+                  </div>
+                  <div class="result-card">
+                    <div class="result-icon">🏥</div>
+                    <div class="result-info">
+                      <label>Dentistas Encontrados</label>
+                      <span id="resultClinics" class="result-value">-</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="results-actions">
+                  <button class="btn btn-primary" onclick="viewClinics()">📍 Ver Dentistas Próximos</button>
+                  <button class="btn btn-secondary" onclick="startNewAnalysis()">🔄 Nova Análise</button>
+                </div>
+              </div>
+
+              <!-- Input do Chat -->
+              <div class="chat-input-container">
+                <div class="input-group">
+                  <input
+                    type="text"
+                    id="userInput"
+                    placeholder="Descreva seus sintomas ou responda as perguntas..."
+                    maxlength="500"
+                    aria-label="Digite sua mensagem"
+                  />
+                  <button id="sendButton" class="btn btn-primary" aria-label="Enviar mensagem">
+                    <span class="btn-text">Enviar</span>
+                    <span class="btn-loading">⌛</span>
+                  </button>
+                </div>
+                <div class="input-actions">
+                  <div class="quick-actions">
+                    <span class="quick-actions-label">Exemplos rápidos:</span>
+                    <button class="quick-action" onclick="insertExample('Estou com dor de dente há 3 dias')">
+                      Dor de dente
+                    </button>
+                    <button class="quick-action" onclick="insertExample('Preciso de uma limpeza dental')">
+                      Limpeza
+                    </button>
+                    <button class="quick-action" onclick="insertExample('Meu dente quebrou')">Dente quebrado</button>
+                  </div>
+                  <div class="input-info">
+                    <span class="char-count" id="charCount">0/500</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-section">
+            <h4>IAmigos Dental</h4>
+            <p>Soluções inovadoras para seguros dentais</p>
+          </div>
+          <div class="footer-section">
+            <h4>Suporte</h4>
+            <p>suporte@iamigos.com</p>
+            <p>(11) 9999-9999</p>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/lex-integration.js"></script>
+    <script src="assets/js/chatbot.js"></script>
+  </body>
+</html>

@@ -1,0 +1,517 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Infraestrutura IAmigos Dental - MVP Completo com S3 Static Website"
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: "iamigos-dental"
+    Description: "Nome do projeto para prefixo de recursos"
+
+  Environment:
+    Type: String
+    Default: "prod"
+    Description: "Ambiente de deploy (dev, staging, prod)"
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+
+  BucketName:
+    Type: String
+    Default: ""
+    Description: "Nome do bucket S3 (deixe vazio para auto-gerar)"
+
+  LexBotName:
+    Type: String
+    Default: "IAmigosDentalBot"
+    Description: "Nome do bot Amazon Lex"
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Configurações do Projeto"
+        Parameters:
+          - ProjectName
+          - Environment
+      - Label:
+          default: "Configurações de Recursos"
+        Parameters:
+          - BucketName
+          - LexBotName
+
+Conditions:
+  ShouldCreateBucket: !Equals [!Ref BucketName, ""]
+  IsProd: !Equals [!Ref Environment, "prod"]
+
+Resources:
+  # ===== S3 BUCKET PARA FRONTEND =====
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !If [ShouldCreateBucket, !Sub "${ProjectName}-frontend-${Environment}", !Ref BucketName]
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - HEAD
+            AllowedOrigins:
+              - "*"
+            MaxAge: 3000
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Component
+          Value: frontend
+
+  # ===== BUCKET POLICY PARA ACESSO PÚBLICO =====
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action:
+              - s3:GetObject
+            Resource: !Sub "${FrontendBucket.Arn}/*"
+
+  # ===== DYNAMODB TABLE =====
+  DentalClaimsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${ProjectName}-claims-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+        - AttributeName: claimType
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+        - AttributeName: createdAt
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: ClaimTypeIndex
+          KeySchema:
+            - AttributeName: claimType
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Component
+          Value: database
+
+  # ===== SNS TOPICS =====
+  ClientNotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${ProjectName}-client-notifications-${Environment}"
+      DisplayName: !Sub "IAmigos Dental - Notificações Clientes ${Environment}"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  DentistNotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${ProjectName}-dentist-notifications-${Environment}"
+      DisplayName: !Sub "IAmigos Dental - Notificações Dentistas ${Environment}"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ===== SQS QUEUES =====
+  ProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${ProjectName}-processing-${Environment}"
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 86400
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ProcessingDLQ.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  ProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${ProjectName}-processing-dlq-${Environment}"
+      MessageRetentionPeriod: 1209600 # 14 dias
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ===== IAM ROLE PARA LAMBDA =====
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-lambda-exec-${Environment}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: !Sub "${ProjectName}-lambda-policy-${Environment}"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # DynamoDB Permissions
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt DentalClaimsTable.Arn
+                  - !Sub "${DentalClaimsTable.Arn}/index/*"
+
+              # SNS Permissions
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Ref ClientNotificationsTopic
+                  - !Ref DentistNotificationsTopic
+
+              # SQS Permissions
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource:
+                  - !GetAtt ProcessingQueue.Arn
+                  - !GetAtt ProcessingDLQ.Arn
+
+              # AI/ML Services Permissions
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - textract:AnalyzeExpense
+                  - lex:PostText
+                  - lex:PutSession
+                Resource: "*"
+
+              # S3 Permissions
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "${FrontendBucket.Arn}/*"
+
+  # ===== LAMBDA FUNCTION =====
+  DentalClaimsProcessor:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-orchestrator-${Environment}"
+      Description: !Sub "Lambda orquestradora para processamento de claims dentais - ${Environment}"
+      Runtime: python3.9
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          DYNAMO_TABLE: !Ref DentalClaimsTable
+          DOCUMENTS_BUCKET: !Ref FrontendBucket
+          SQS_QUEUE_URL: !Ref ProcessingQueue
+          SNS_TOPIC_CLIENTES: !Ref ClientNotificationsTopic
+          SNS_TOPIC_DENTISTAS: !Ref DentistNotificationsTopic
+          BEDROCK_MODEL_ID: "amazon.titan-text-express-v1"
+          ENVIRONMENT: !Ref Environment
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Component
+          Value: lambda
+
+  # ===== LAMBDA PERMISSION FOR LEX =====
+  LexLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DentalClaimsProcessor
+      Action: lambda:InvokeFunction
+      Principal: lexv2.amazonaws.com
+
+  # ===== AMAZON LEX BOT =====
+  DentalLexBot:
+    Type: AWS::Lex::Bot
+    Properties:
+      Name: !Ref LexBotName
+      Description: !Sub "Assistente virtual IAmigos Dental para pré-aprovações e reembolsos - ${Environment}"
+      RoleArn: !GetAtt LambdaExecutionRole.Arn
+      DataPrivacy:
+        ChildDirected: false
+      IdleSessionTTLInSeconds: 300
+      AutoBuildBotLocales: true
+      BotLocales:
+        - LocaleId: pt_BR
+          Description: "Português Brasileiro"
+          NluConfidenceThreshold: 0.40
+          Intents:
+            # Intent: SolicitarPreAprovacao
+            - Name: SolicitarPreAprovacao
+              Description: "Inicia fluxo de pré-aprovação de tratamento dental"
+              SampleUtterances:
+                - Utterance: "Quero fazer uma pré-aprovação"
+                - Utterance: "Estou com dor de dente"
+                - Utterance: "Preciso de uma pré-aprovação para {sintomas}"
+                - Utterance: "Meu plano é {planoDental} e estou com {sintomas}"
+              Slots:
+                - Name: sintomas
+                  SlotTypeName: AMAZON.Text
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Message: "Por favor, descreva seus sintomas principais"
+                      MaxRetries: 3
+                - Name: planoDental
+                  SlotTypeName: AMAZON.Text
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Message: "Qual é o seu plano dental? (Basic, Premium, VIP)"
+                      MaxRetries: 3
+                - Name: localizacao
+                  SlotTypeName: AMAZON.Text
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Message: "Qual seu CEP para encontrar dentistas próximos?"
+                      MaxRetries: 3
+              IntentClosingSetting:
+                ClosingResponse:
+                  MessageGroupsList:
+                    - Message:
+                        PlainTextMessage:
+                          Message: "Processando sua solicitação de pré-aprovação..."
+                  AllowInterrupt: true
+
+            # Intent: SolicitarReembolso
+            - Name: SolicitarReembolso
+              Description: "Inicia fluxo de solicitação de reembolso"
+              SampleUtterances:
+                - Utterance: "Quero solicitar reembolso"
+                - Utterance: "Preciso de reembolso para procedimento dental"
+                - Utterance: "Tenho nota fiscal do dentista {documentKey}"
+                - Utterance: "Solicitar reembolso do valor {valorProcedimento}"
+              Slots:
+                - Name: documentKey
+                  SlotTypeName: AMAZON.Text
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Message: "Qual o nome/identificador do arquivo da nota fiscal?"
+                      MaxRetries: 3
+                - Name: planoDental
+                  SlotTypeName: AMAZON.Text
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Message: "Qual é o seu plano dental?"
+                      MaxRetries: 3
+                - Name: valorProcedimento
+                  SlotTypeName: AMAZON.Number
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Message: "Qual o valor do procedimento em reais?"
+                      MaxRetries: 3
+
+            # Intent: BuscarDentistas
+            - Name: BuscarDentistas
+              Description: "Busca consultórios dentais próximos"
+              SampleUtterances:
+                - Utterance: "Buscar dentistas perto de {localizacao}"
+                - Utterance: "Encontrar dentistas que aceitam {planoDental}"
+                - Utterance: "Dentistas de {especialidade} na região"
+                - Utterance: "Clinicas dentais próximas"
+              Slots:
+                - Name: localizacao
+                  SlotTypeName: AMAZON.Text
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Message: "Qual sua localização (CEP)?"
+                      MaxRetries: 3
+                - Name: planoDental
+                  SlotTypeName: AMAZON.Text
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Message: "Qual seu plano dental?"
+                      MaxRetries: 3
+                - Name: especialidade
+                  SlotTypeName: AMAZON.Text
+                  ValueElicitationSetting:
+                    SlotConstraint: Optional
+                    PromptSpecification:
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Message: "Tem alguma especialidade específica em mente?"
+                      MaxRetries: 2
+
+      BotFileLocaleSettings:
+        - LocaleId: pt_BR
+          Enabled: true
+
+  # ===== LEX BOT VERSION =====
+  DentalLexBotVersion:
+    Type: AWS::Lex::BotVersion
+    DependsOn: DentalLexBot
+    Properties:
+      BotId: !Ref DentalLexBot
+      BotVersionLocaleSpecification:
+        - LocaleId: pt_BR
+          BotVersionLocaleDetails:
+            SourceBotVersion: DRAFT
+      Description: !Sub "Versão ${Environment} do bot IAmigos Dental"
+
+  # ===== LEX BOT ALIAS =====
+  DentalLexBotAlias:
+    Type: AWS::Lex::BotAlias
+    DependsOn: DentalLexBotVersion
+    Properties:
+      BotAliasName: !Ref Environment
+      BotId: !Ref DentalLexBot
+      Description: !Sub "Alias ${Environment} para o bot IAmigos Dental"
+      BotVersion: !GetAtt DentalLexBotVersion.BotVersion
+      BotAliasLocaleSettings:
+        - LocaleId: pt_BR
+          BotAliasLocaleSetting:
+            Enabled: true
+            CodeHookSpecification:
+              LambdaCodeHook:
+                CodeHookInterfaceVersion: "1.0"
+                LambdaArn: !GetAtt DentalClaimsProcessor.Arn
+
+Outputs:
+  FrontendWebsiteURL:
+    Description: "URL do website estático no S3"
+    Value: !GetAtt FrontendBucket.WebsiteURL
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-WebsiteURL"
+
+  FrontendBucketName:
+    Description: "Nome do bucket S3 do frontend"
+    Value: !Ref FrontendBucket
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-BucketName"
+
+  DynamoDBTableName:
+    Description: "Nome da tabela DynamoDB"
+    Value: !Ref DentalClaimsTable
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-TableName"
+
+  LambdaFunctionName:
+    Description: "Nome da função Lambda"
+    Value: !Ref DentalClaimsProcessor
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-LambdaName"
+
+  LexBotId:
+    Description: "ID do bot Amazon Lex"
+    Value: !Ref DentalLexBot
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-LexBotId"
+
+  LexBotAliasId:
+    Description: "ID do alias do bot Lex"
+    Value: !Ref DentalLexBotAlias
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-LexBotAliasId"
+
+  SNSClientTopic:
+    Description: "ARN do tópico SNS para clientes"
+    Value: !Ref ClientNotificationsTopic
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-SNSClientTopic"
+
+  SNSDentistTopic:
+    Description: "ARN do tópico SNS para dentistas"
+    Value: !Ref DentistNotificationsTopic
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-SNSDentistTopic"
+
+  DeploymentInstructions:
+    Description: "Instruções para deploy do frontend"
+    Value: !Sub |
+      🚀 IAmigos Dental Infrastructure Created!
+
+      📋 Next Steps:
+      1. Deploy frontend files to S3 bucket: ${FrontendBucket}
+      2. Website URL: ${FrontendBucket.WebsiteURL}
+      3. Test Lex bot in AWS Console
+      4. Upload Lambda function code
+
+      🔧 Frontend Deploy Command:
+      aws s3 sync ./frontend-files/ s3://${FrontendBucket} --delete
+
+      ✅ Ready for production!

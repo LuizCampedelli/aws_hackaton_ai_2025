@@ -1,0 +1,27 @@
+{
+  "sessionState": {
+    "intent": {
+      "name": "SolicitarReembolso",
+      "slots": {
+        "documentKey": {
+          "value": {
+            "interpretedValue": "nota_fiscal_12345.pdf"
+          }
+        },
+        "planoDental": {
+          "value": {
+            "interpretedValue": "premium"
+          }
+        },
+        "valorProcedimento": {
+          "value": {
+            "interpretedValue": "350.00",
+            "originalValue": "350,00"
+          }
+        }
+      },
+      "state": "ReadyForFulfillment"
+    }
+  },
+  "inputTranscript": "quero solicitar reembolso para o arquivo nota_fiscal_12345.pdf no valor de 350 reais"
+}

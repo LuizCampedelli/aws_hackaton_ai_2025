@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meus Pedidos - IAmigos Dental</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/status.css" />
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="header">
+      <div class="container">
+        <div class="logo-section">
+          <a href="index.html" class="logo-link">
+            <img src="assets/images/logo.png" alt="IAmigos Dental" class="logo" />
+          </a>
+          <span class="logo-text">IAmigos Dental</span>
+        </div>
+
+        <nav class="nav">
+          <a href="index.html" class="nav-link">Início</a>
+          <a href="chatbot.html" class="nav-link">Pré-Aprovação</a>
+          <a href="upload.html" class="nav-link">Reembolso</a>
+          <a href="clinics.html" class="nav-link">Dentistas</a>
+          <a href="status.html" class="nav-link active">Meus Pedidos</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="container">
+        <div class="page-header">
+          <h1>Meus Pedidos e Solicitações</h1>
+          <p class="page-description">Acompanhe o status de suas pré-aprovações e solicitações de reembolso</p>
+        </div>
+
+        <div class="status-layout">
+          <!-- Resumo -->
+          <div class="status-summary">
+            <div class="summary-card">
+              <div class="summary-icon">📋</div>
+              <div class="summary-info">
+                <div class="summary-number" id="totalRequests">0</div>
+                <div class="summary-label">Total de Solicitações</div>
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <div class="summary-icon">⏳</div>
+              <div class="summary-info">
+                <div class="summary-number" id="pendingRequests">0</div>
+                <div class="summary-label">Em Andamento</div>
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <div class="summary-icon">✅</div>
+              <div class="summary-info">
+                <div class="summary-number" id="approvedRequests">0</div>
+                <div class="summary-label">Aprovados</div>
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <div class="summary-icon">💰</div>
+              <div class="summary-info">
+                <div class="summary-number" id="totalAmount">R$ 0</div>
+                <div class="summary-label">Valor Total</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filtros e Busca -->
+          <div class="status-filters">
+            <div class="search-box">
+              <input type="text" id="searchInput" class="form-control" placeholder="Buscar por ID, procedimento..." />
+              <button class="btn btn-primary" onclick="searchRequests()">🔍 Buscar</button>
+            </div>
+
+            <div class="filter-controls">
+              <select id="statusFilter" class="form-control" onchange="filterRequests()">
+                <option value="">Todos os status</option>
+                <option value="processing">Em processamento</option>
+                <option value="approved">Aprovado</option>
+                <option value="rejected">Rejeitado</option>
+                <option value="completed">Concluído</option>
+              </select>
+
+              <select id="typeFilter" class="form-control" onchange="filterRequests()">
+                <option value="">Todos os tipos</option>
+                <option value="pre_approval">Pré-aprovação</option>
+                <option value="reimbursement">Reembolso</option>
+              </select>
+
+              <button class="btn btn-secondary" onclick="clearFilters()">🔄 Limpar</button>
+            </div>
+          </div>
+
+          <!-- Lista de Solicitações -->
+          <div class="requests-list" id="requestsList">
+            <div class="no-requests" id="noRequests">
+              <div class="no-requests-icon">📭</div>
+              <h3>Nenhuma solicitação encontrada</h3>
+              <p>Você ainda não fez nenhuma solicitação ou não há resultados para os filtros aplicados.</p>
+              <div class="no-requests-actions">
+                <a href="chatbot.html" class="btn btn-primary">🦷 Fazer Pré-Aprovação</a>
+                <a href="upload.html" class="btn btn-secondary">📄 Solicitar Reembolso</a>
+              </div>
+            </div>
+
+            <!-- As solicitações serão inseridas aqui via JavaScript -->
+          </div>
+
+          <!-- Detalhes da Solicitação -->
+          <div class="request-details" id="requestDetails">
+            <div class="details-placeholder">
+              <div class="placeholder-icon">📋</div>
+              <h3>Selecione uma solicitação</h3>
+              <p>Clique em uma solicitação da lista para ver os detalhes completos</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-section">
+            <h4>IAmigos Dental</h4>
+            <p>Soluções inovadoras para seguros dentais</p>
+          </div>
+          <div class="footer-section">
+            <h4>Suporte</h4>
+            <p>suporte@iamigos.com</p>
+            <p>(11) 9999-9999</p>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/lex-integration.js"></script>
+    <script src="assets/js/status.js"></script>
+  </body>
+</html>

@@ -1,0 +1,1147 @@
+Description: This template deploys resources for Workshop Studio hosted
+  Generative AI - Amazon Bedrock Zero to Hero - Labs workshop, now including Amazon Lex and Amazon Textract resources.
+
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: bedrock-zero-to-hero-infra
+  VpcCIDR:
+    Description: Please enter the IP range (CIDR notation) for this VPC
+    Type: String
+    Default: 10.192.0.0/16
+  PublicSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in
+      the first Availability Zone
+    Type: String
+    Default: 10.192.10.0/24
+  PublicSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in
+      the second Availability Zone
+    Type: String
+    Default: 10.192.11.0/24
+  PrivateSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in
+      the first Availability Zone
+    Type: String
+    Default: 10.192.20.0/24
+  PrivateSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in
+      the second Availability Zone
+    Type: String
+    Default: 10.192.21.0/24
+  LexBotLocaleId:
+    Description: The locale ID for the Lex bot. E.g., pt_BR
+    Type: String
+    Default: pt_BR
+  LexBotName:
+    Description: The name for the Amazon Lex Bot.
+    Type: String
+    Default: InsuranceClaimBot
+
+Mappings:
+  RegionMap:
+    eu-north-1:
+      s3bucket: ws-assets-prod-iad-r-arn-580aeca3990cef5a
+    ap-south-1:
+      s3bucket: ws-assets-prod-iad-r-bom-431207042d319a2d
+    eu-west-3:
+      s3bucket: ws-assets-prod-iad-r-cdg-9e76383c31ad6229
+    us-east-2:
+      s3bucket: ws-assets-prod-iad-r-cmh-8d6e9c21a4dec77d
+    eu-west-1:
+      s3bucket: ws-assets-prod-iad-r-dub-85e3be25bd827406
+    eu-central-1:
+      s3bucket: ws-assets-prod-iad-r-fra-b129423e91500967
+    sa-east-1:
+      s3bucket: ws-assets-prod-iad-r-gru-527b8c19222c1182
+    us-east-1:
+      s3bucket: ws-assets-prod-iad-r-iad-ed304a55c2ca1aee
+    ap-northeast-2:
+      s3bucket: ws-assets-prod-iad-r-icn-ced060f0d38bc0b0
+    ap-northeast-3:
+      s3bucket: ws-assets-prod-iad-r-kix-c2a28ad4e55ea53a
+    eu-west-2:
+      s3bucket: ws-assets-prod-iad-r-lhr-cc4472a651221311
+    ap-northeast-1:
+      s3bucket: ws-assets-prod-iad-r-nrt-2cb4b4649d0e0f94
+    us-west-2:
+      s3bucket: ws-assets-prod-iad-r-pdx-f3b3f9f1a7d6a3d0
+    us-west-1:
+      s3bucket: ws-assets-prod-iad-r-sfo-f61fc67057535f1b
+    ap-southeast-1:
+      s3bucket: ws-assets-prod-iad-r-sin-694a125e41645312
+    ap-southeast-2:
+      s3bucket: ws-assets-prod-iad-r-syd-b04c62a5f16f7b2e
+    ca-central-1:
+      s3bucket: ws-assets-prod-iad-r-yul-5c2977cd61bca1f3
+
+Resources:
+  # Existing VPC, Subnets, Gateways, Route Tables, and Security Groups are omitted for brevity...
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: BedrockWorkShopEnv
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: BedrockWorkShopEnv
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ''
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs ''
+      CidrBlock: !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ''
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs ''
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ2)
+
+  NatGateway1EIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+
+  NatGateway2EIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway1EIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+
+  NatGateway2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway2EIP.AllocationId
+      SubnetId: !Ref PublicSubnet2
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Routes
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ1)
+
+  DefaultPrivateRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ2)
+
+  DefaultPrivateRoute2:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      SubnetId: !Ref PrivateSubnet2
+
+  NoIngressSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: no-ingress-sg
+      GroupDescription: Security group with no ingress rule
+      VpcId: !Ref VPC
+
+  BedrockWSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: bedrockws-sg
+      GroupDescription: Security group for Bedrock Zero to Hero Workshop
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic by default
+          IpProtocol: '-1'
+
+  BedrockWSSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Bedrock Zero to Hero Workshop Security Group Ingress
+      IpProtocol: '-1'
+      GroupId: !GetAtt BedrockWSSecurityGroup.GroupId
+      SourceSecurityGroupId: !GetAtt BedrockWSSecurityGroup.GroupId
+
+  #Create Aurora RDS Cluster
+  RDSCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      EnableHttpEndpoint: true
+      ManageMasterUserPassword: true
+      MasterUsername: bedrockuser
+      Engine: aurora-postgresql
+      DatabaseName: bedrockdb
+      DBClusterIdentifier: bedrockzerotohero
+      DBSubnetGroupName: !Ref RDSDBSubnetGroup
+  RDSDBInstance1:
+    Type: AWS::RDS::DBInstance
+    DependsOn:
+      - BedrockWSSecurityGroup
+    Properties:
+      Engine: aurora-postgresql
+      DBClusterIdentifier: !Ref RDSCluster
+      PubliclyAccessible: 'true'
+      DBInstanceClass: db.r6g.large
+      DBInstanceIdentifier: bedrockwsdbinstance
+  RDSDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Allowed subnets for Aurora DB cluster instances
+      DBSubnetGroupName: bedrock-ws-db-sg
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+
+  assetbkt:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: BucketOwnerFullControl
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  BasicParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: workshop-s3-bucket
+      Type: String
+      Value: !Ref assetbkt
+      Description: SSM Parameter for storing S3 bucket name
+
+  SAGEMAKERDOMAIN:
+    Type: AWS::SageMaker::Domain
+    Properties:
+      AuthMode: IAM
+      DefaultUserSettings:
+        StudioWebPortal: ENABLED
+        DefaultLandingUri: 'studio::'
+        ExecutionRole: !GetAtt SageMakerExecutionRole.Arn
+        SecurityGroups:
+          - !Ref BedrockWSSecurityGroup
+        DomainName: Bedrock-WS
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      VpcId: !Ref VPC
+  USERPROFILE:
+    Type: AWS::SageMaker::UserProfile
+    DependsOn: SAGEMAKERDOMAIN
+    Properties:
+      DomainId: !Ref SAGEMAKERDOMAIN
+      UserProfileName: !Sub Bedrock-WS-User
+      UserSettings:
+        ExecutionRole: !GetAtt SageMakerExecutionRole.Arn
+  
+  # --- Lex and Textract Resources ---
+  
+  # IAM Role for Lex Bot
+  LexBotServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lex.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonLexV2BotExecutionRole
+      Policies:
+        - PolicyName: LexLambdaInvokePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt CreateClaimFunction.Arn
+                  - !GetAtt SendReminderFunction.Arn
+                  - !GetAtt GatherEvidenceFunction.Arn
+                
+  # Amazon Lex Bot
+  InsuranceClaimBot:
+    Type: AWS::Lex::Bot
+    Properties:
+      Name: !Ref LexBotName
+      DataPrivacy:
+        ChildDirected: false
+      IdleSessionTTLInSeconds: 300
+      RoleArn: !GetAtt LexBotServiceRole.Arn
+      AutoBuildControl: LIVE
+      BotLocales:
+        - LocaleId: !Ref LexBotLocaleId
+          NluConfidenceThreshold: 0.4
+          Description: English (US) locale
+          VoiceSettings:
+            VoiceId: Matthew # A standard male voice for the bot
+
+  # --- Lex and Textract Permissions for Lambda/SageMaker Roles ---
+  
+  SageMakerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - sagemaker.amazonaws.com
+                - events.amazonaws.com
+                - bedrock.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        # Canvas-specific policies below
+        - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+        - arn:aws:iam::aws:policy/AmazonBedrockFullAccess
+        - arn:aws:iam::aws:policy/AmazonSageMakerCanvasFullAccess
+        - arn:aws:iam::aws:policy/AmazonSageMakerCanvasDataPrepFullAccess
+        - arn:aws:iam::aws:policy/AmazonSageMakerCanvasBedrockAccess
+        - arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonRDSFullAccess
+        - arn:aws:iam::aws:policy/AmazonRDSDataFullAccess
+        - arn:aws:iam::aws:policy/SecretsManagerReadWrite
+      Policies:
+        - PolicyName: AmazonIAM
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:*
+                Resource:
+                  - '*'
+        - PolicyName: AmazonOS
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - aoss:*
+                Resource:
+                  - '*'
+        - PolicyName: AmazonS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketCors
+                  - s3:GetBucketLocation
+                  - s3:AbortMultipartUpload
+                Resource:
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Ref assetbkt
+                      - /*
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Ref assetbkt
+        - PolicyName: SecurityAndNetworking
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeVpcs
+                  - ec2:DescribeVpcEndpoints
+                  - ec2:DescribeVpcEndpointServices
+                  - ec2:DescribeRouteTables
+                  - kms:ListAliases
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:ReEncrypt*
+                  - kms:GenerateDataKey
+                  - kms:GenerateDataKeyWithoutPlaintext
+                Resource: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*
+        - PolicyName: PutMetricData
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+        - PolicyName: SageMakerPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sagemaker:DescribeApp
+                  - sagemaker:DescribeDomain
+                  - sagemaker:DescribeSpace
+                  - sagemaker:DescribeUserProfile
+                  - sagemaker:ListUserProfiles
+                  - sagemaker:ListApps
+                  - sagemaker:ListDomains
+                  - sagemaker:ListSpaces
+                  - sagemaker:ListTags
+                  - sagemaker:ListUserProfiles
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sagemaker:CreateApp
+                  - sagemaker:DeleteApp
+                  - sagemaker:CreatePresignedDomainUrl
+                Resource:
+                  #   arn:aws:sagemaker:{Region}:{Account}:app/{DomainId}/{UserProfileName}/{AppType}/{AppName}
+                  - !Sub arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:app/*/*/Canvas/*
+                  - !Sub arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:app/*/*/canvas/*
+              - Effect: Allow
+                Action:
+                  - sagemaker:AddTags
+                Resource:
+                  - !Sub arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:*/*
+        # New Policy for Textract permissions
+        - PolicyName: TextractAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - textract:AnalyzeDocument
+                  - textract:DetectDocumentText
+                  - textract:StartDocumentTextDetection
+                  - textract:GetDocumentTextDetection
+                  - textract:StartDocumentAnalysis
+                  - textract:GetDocumentAnalysis
+                Resource: "*"
+        # New Policy for Lex permissions
+        - PolicyName: LexBotManagementPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lex:GetBot
+                  - lex:GetBotAlias
+                  - lex:PostContent
+                  - lex:PostText
+                Resource: '*'
+
+  lambdarole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Version: '2012-10-17'
+      Description: Workshop Lambda Role
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:ReEncrypt*
+                  - kms:GenerateDataKey
+                  - kms:GenerateDataKeyWithoutPlaintext
+                Effect: Allow
+                Resource: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*
+            Version: '2012-10-17'
+          PolicyName: AllowKMSAccess
+        - PolicyDocument:
+            Statement:
+              - Action: ssm:GetParameter
+                Effect: Allow
+                Resource: !Join
+                  - ''
+                  - - 'arn:aws:ssm:'
+                    - !Ref AWS::Region
+                    - ':'
+                    - !Ref AWS::AccountId
+                    - ':parameter/*'
+            Version: '2012-10-17'
+          PolicyName: GetSSMParameter
+        - PolicyDocument:
+            Statement:
+              - Action: lambda:InvokeFunction
+                Effect: Allow
+                Resource: !Join
+                  - ''
+                  - - 'arn:aws:lambda:'
+                    - !Ref AWS::Region
+                    - ':'
+                    - !Ref AWS::AccountId
+                    - ':function:*'
+            Version: '2012-10-17'
+          PolicyName: InvokeLambdaFunction
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - s3:DeleteObject
+                  - s3:DeleteObjectTagging
+                  - s3:GetObject
+                  - s3:GetObjectTagging
+                  - s3:ListBucket
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                  - s3:PutObjectTagging
+                  - s3:PutBucketNotification
+                  - s3:GetBucketNotification
+                Effect: Allow
+                Resource:
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Ref assetbkt
+                      - /*
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Ref assetbkt
+            Version: '2012-10-17'
+          PolicyName: s3_bucket_access
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - s3:GetObject
+                  - s3:GetObjectTagging
+                  - s3:ListBucket
+                Effect: Allow
+                Resource:
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !FindInMap
+                        - RegionMap
+                        - !Ref AWS::Region
+                        - s3bucket
+                      - /*
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !FindInMap
+                        - RegionMap
+                        - !Ref AWS::Region
+                        - s3bucket
+            Version: '2012-10-17'
+          PolicyName: s3_workshop_bucket_access
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:DescribeLogGroups
+                  - logs:GetLogEvents
+                  - logs:GetLogGroupFields
+                  - logs:GetLogRecord
+                  - logs:GetQueryResults
+                  - logs:PutLogEvents
+                Effect: Allow
+                Resource: '*'
+            Version: '2012-10-17'
+          PolicyName: logs_access
+        - PolicyDocument:
+            Statement:
+              - Action: cloudwatch:*
+                Effect: Allow
+                Resource: '*'
+            Version: '2012-10-17'
+          PolicyName: cloud_watch
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:ConditionCheckItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:DescribeTable
+                  - dynamodb:GetItem
+                  - dynamodb:GetRecords
+                  - dynamodb:GetShardIterator
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                  - lambda:Get*
+                  - lambda:InvokeFunction
+                  - bedrock:InvokeModel
+                  - sns:Publish
+                  - s3:GetObject
+                  - s3:PutObject
+                Effect: Allow
+                Resource: '*'
+            Version: '2012-10-17'
+          PolicyName: bedrock_agent_policy
+        # New Policy for Textract permissions for Lambda
+        - PolicyName: TextractLambdaAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - textract:AnalyzeDocument
+                  - textract:DetectDocumentText
+                Resource: "*"
+  
+  # Existing Lambda and DDB resources omitted for brevity...
+  CustomResourceLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt lambdarole.Arn
+      Code:
+        ZipFile: |
+          
+          from __future__ import print_function
+          import json
+          import boto3
+          import cfnresponse
+
+          SUCCESS = "SUCCESS"
+          FAILED = "FAILED"
+
+          print('Loading function')
+          s3 = boto3.resource('s3')
+          s3_client = boto3.client('s3')
+
+          def lambda_handler(event, context):
+              print("Received event: " + json.dumps(event, indent=2))
+              responseData={}
+              try:
+                  if event['RequestType'] == 'Delete':
+                      print("Request Type:",event['RequestType'])
+                      Bucket=event['ResourceProperties']['Bucket']
+                      print("Sending response to custom resource after Delete")
+                  elif event['RequestType'] == 'Create' or event['RequestType'] == 'Update':
+                      print("Request Type:",event['RequestType'])
+                      Bucket=event['ResourceProperties']['Bucket']
+                      Source_Bucket=event['ResourceProperties']['SourceBucket']
+                      responseData={'Bucket':Bucket}
+                      add_prefix(Bucket)
+                      upload_files(Bucket, Source_Bucket)
+                      s3_data_file_list = [
+                              'AccidentImages_file_requirements.docx',
+                              'AccidentImages_file_requirements.docx.metadata.json',
+                              'AccidentReport_file_requirements.docx',
+                              'AccidentReport_file_requirements.docx.metadata.json',
+                              'Claim_2s34w-8x_Amounts.pdf',
+                              'Claim_2s34w-8x_Amounts.pdf.metadata.json',
+                              'Claim_2s34w-8x_RepairEstimate.pdf',
+                              'Claim_2s34w-8x_RepairEstimate.pdf.metadata.json',
+                              'Claim_3b45c-9d_Amounts.pdf',
+                              'Claim_3b45c-9d_Amounts.pdf.metadata.json',
+                              'Claim_3b45c-9d_RepairEstimate.pdf',
+                              'Claim_3b45c-9d_RepairEstimate.pdf.metadata.json',
+                              'Claim_5t16u-7v_Amounts.pdf',
+                              'Claim_5t16u-7v_Amounts.pdf.metadata.json',
+                              'Claim_5t16u-7v_RepairEstimate.pdf',
+                              'Claim_5t16u-7v_RepairEstimate.pdf.metadata.json',
+                              'Driverlicense_file_requirements.docx',
+                              'Driverlicense_file_requirements.docx.metadata.json',
+                              'External-Insurance-FAQs.xlsx',
+                              'External-Insurance-FAQs.xlsx.metadata.json',
+                              'Internal-Insurance-FAQs.xlsx',
+                              'Internal-Insurance-FAQs.xlsx.metadata.json',
+                              'VehicleRegistration_file_requirements.docx',
+                              'VehicleRegistration_file_requirements.docx.metadata.json'
+                          ]
+                      for file_name in s3_data_file_list:
+                        upload_data_files(Bucket, Source_Bucket, 'insurance_assets', file_name)
+
+                      s3_agent_api_schema_file_list = [
+                                              'create_claim.json',
+                                              'gather_evidence.json',
+                                              'send_reminder.json'
+                          ]
+
+                      for file_name in s3_agent_api_schema_file_list:
+                        upload_data_files(Bucket, Source_Bucket, 'agent-api-schema', file_name)
+
+                      s3_agent_layer_file_list = [
+                                               'layer-bedrock-agents-348688cf-bcd5-4722-a0d7-5f24af086117.zip',
+                                               'layer-cfnresponse-e5823fd2-12d7-45f5-8d0a-6fb58f6be7c6.zip'
+                          ]
+
+                      for file_name in s3_agent_layer_file_list:
+                        upload_data_files(Bucket, Source_Bucket, 'agent-lambda-layer', file_name)
+
+                      s3_agent_lambda_list = [
+                                               'lambda_create_claim.zip',
+                                               'lambda_gather_evidence.zip',
+                                               'lambda_loader_deployment_package.zip',
+                                               'lambda_send_reminder.zip'
+                          ]
+
+                      for file_name in s3_agent_lambda_list:
+                        upload_data_files(Bucket, Source_Bucket, 'agent-lambda', file_name)
+
+                      print("Sending response to custom resource")
+                  responseStatus = 'SUCCESS'
+              except Exception as e:
+                  print('Failed to process:', e)
+                  responseStatus = 'FAILED'
+                  responseData = {'Failure': 'Something bad happened.'}
+              cfnresponse.send(event, context, responseStatus, responseData, "CustomResourcePhysicalID")
+
+          def add_prefix(Bucket):
+              s3_folder_list = ['workshop-assets']
+              for folder_name in s3_folder_list:
+                  s3_client.put_object(Bucket=Bucket, Key=(folder_name + '/'))
+                  print(f"folder_name: {folder_name} created in the s3 bucket: {Bucket}")
+
+          def upload_data_files(Bucket, Source_Bucket, s3_prefix, file_name):
+              source = {'Bucket': Source_Bucket, 'Key': f'de7a7c7c-87bc-4404-90f4-948c89e30d5b/{file_name}'}
+              s3_target_key = f'{s3_prefix}/{file_name}'
+              s3_client.copy_object(
+                      Bucket=Bucket,
+                      CopySource=source,
+                      Key=s3_target_key,
+                      ACL='bucket-owner-full-control',
+                      StorageClass='STANDARD'
+              )
+              print(f"{file_name} uploaded to s3")
+
+          def upload_files(Bucket, Source_Bucket):
+              source = {'Bucket': Source_Bucket, 'Key': 'de7a7c7c-87bc-4404-90f4-948c89e30d5b/Gen-AI-Automated-Database-Function-Creation.ipynb'}
+              s3_client.copy_object(
+                      Bucket=Bucket,
+                      CopySource=source,
+                      Key='workshop-assets/Gen-AI-Automated-Database-Function-Creation.ipynb',
+                      ACL='bucket-owner-full-control',
+                      StorageClass='STANDARD'
+              )
+              print("Gen-AI-Automated-Database-Function-Creation.ipynb uploaded to s3")
+
+              source = {'Bucket': Source_Bucket, 'Key': 'de7a7c7c-87bc-4404-90f4-948c89e30d5b/AMZN-2019-Shareholder-Letter.pdf'}
+              s3_client.copy_object(
+                      Bucket=Bucket,
+                      CopySource=source,
+                      Key='shareholder_newsletter/AMZN-2019-Shareholder-Letter.pdf',
+                      ACL='bucket-owner-full-control',
+                      StorageClass='STANDARD'
+              )
+              print("AMZN-2019-Shareholder-Letter.pdf uploaded to s3")
+
+              source = {'Bucket': Source_Bucket, 'Key': 'de7a7c7c-87bc-4404-90f4-948c89e30d5b/AMZN-2020-Shareholder-Letter.pdf'}
+              s3_client.copy_object(
+                      Bucket=Bucket,
+                      CopySource=source,
+                      Key='shareholder_newsletter/AMZN-2020-Shareholder-Letter.pdf',
+                      ACL='bucket-owner-full-control',
+                      StorageClass='STANDARD'
+              )
+              print("AMZN-2020-Shareholder-Letter.pdf uploaded to s3")
+
+              source = {'Bucket': Source_Bucket, 'Key': 'de7a7c7c-87bc-4404-90f4-948c89e30d5b/AMZN-2021-Shareholder-Letter.pdf'}
+              s3_client.copy_object(
+                      Bucket=Bucket,
+                      CopySource=source,
+                      Key='shareholder_newsletter/AMZN-2021-Shareholder-Letter.pdf',
+                      ACL='bucket-owner-full-control',
+                      StorageClass='STANDARD'
+              )
+              print("AMZN-2021-Shareholder-Letter.pdf uploaded to s3")
+
+              source = {'Bucket': Source_Bucket, 'Key': 'de7a7c7c-87bc-4404-90f4-948c89e30d5b/AMZN-2022-Shareholder-Letter.pdf'}
+              s3_client.copy_object(
+                      Bucket=Bucket,
+                      CopySource=source,
+                      Key='shareholder_newsletter/AMZN-2022-Shareholder-Letter.pdf',
+                      ACL='bucket-owner-full-control',
+                      StorageClass='STANDARD'
+              )
+              print("AMZN-2022-Shareholder-Letter.pdf uploaded to s3")
+
+              source = {'Bucket': Source_Bucket, 'Key': 'de7a7c7c-87bc-4404-90f4-948c89e30d5b/AMZN-2019-Shareholder-Letter.pdf.metadata.json'}
+              s3_client.copy_object(
+                      Bucket=Bucket,
+                      CopySource=source,
+                      Key='shareholder_newsletter/AMZN-2019-Shareholder-Letter.pdf.metadata.json',
+                      ACL='bucket-owner-full-control',
+                      StorageClass='STANDARD'
+              )
+              print("AMZN-2019-Shareholder-Letter.pdf.metadata.json uploaded to s3")
+
+              source = {'Bucket': Source_Bucket, 'Key': 'de7a7c7c-87bc-4404-90f4-948c89e30d5b/AMZN-2020-Shareholder-Letter.pdf.metadata.json'}
+              s3_client.copy_object(
+                      Bucket=Bucket,
+                      CopySource=source,
+                      Key='shareholder_newsletter/AMZN-2020-Shareholder-Letter.pdf.metadata.json',
+                      ACL='bucket-owner-full-control',
+                      StorageClass='STANDARD'
+              )
+              print("AMZN-2020-Shareholder-Letter.pdf.metadata.json uploaded to s3")
+
+              source = {'Bucket': Source_Bucket, 'Key': 'de7a7c7c-87bc-4404-90f4-948c89e30d5b/AMZN-2021-Shareholder-Letter.pdf.metadata.json'}
+              s3_client.copy_object(
+                      Bucket=Bucket,
+                      CopySource=source,
+                      Key='shareholder_newsletter/AMZN-2021-Shareholder-Letter.pdf.metadata.json',
+                      ACL='bucket-owner-full-control',
+                      StorageClass='STANDARD'
+              )
+              print("AMZN-2021-Shareholder-Letter.pdf.metadata.json uploaded to s3")
+
+              source = {'Bucket': Source_Bucket, 'Key': 'de7a7c7c-87bc-4404-90f4-948c89e30d5b/AMZN-2022-Shareholder-Letter.pdf.metadata.json'}
+              s3_client.copy_object(
+                      Bucket=Bucket,
+                      CopySource=source,
+                      Key='shareholder_newsletter/AMZN-2022-Shareholder-Letter.pdf.metadata.json',
+                      ACL='bucket-owner-full-control',
+                      StorageClass='STANDARD'
+              )
+              print("AMZN-2022-Shareholder-Letter.pdf.metadata.json uploaded to s3")
+
+      Runtime: python3.11
+      Timeout: 600
+  LambdaTrigger:
+    Type: Custom::LambdaTrigger
+    DependsOn: assetbkt
+    Properties:
+      ServiceToken: !GetAtt CustomResourceLambdaFunction.Arn
+      Bucket: !Ref assetbkt
+      SourceBucket: !FindInMap
+        - RegionMap
+        - !Ref AWS::Region
+        - s3bucket
+  LayerCfnResponse:
+    Type: AWS::Lambda::LayerVersion
+    DependsOn: LambdaTrigger
+    Properties:
+      CompatibleRuntimes:
+        - python3.12
+        - python3.11
+      Content:
+        S3Bucket: !Ref assetbkt
+        S3Key: agent-lambda-layer/layer-cfnresponse-e5823fd2-12d7-45f5-8d0a-6fb58f6be7c6.zip
+      Description: cfnresponse Layer
+      LayerName: cfnresponse
+      LicenseInfo: MIT
+  LayerBedrockAgent:
+    Type: AWS::Lambda::LayerVersion
+    DependsOn: LambdaTrigger
+    Properties:
+      CompatibleRuntimes:
+        - python3.12
+        - python3.11
+      Content:
+        S3Bucket: !Ref assetbkt
+        S3Key: agent-lambda-layer/layer-bedrock-agents-348688cf-bcd5-4722-a0d7-5f24af086117.zip
+      Description: Layer to support lambda functions related to Bedrock Agents
+      LayerName: bedrock-agents
+      LicenseInfo: MIT
+
+  ExistingClaimsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-ExistingClaims
+      AttributeDefinitions:
+        - AttributeName: claimId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: claimId
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: '3'
+        WriteCapacityUnits: '3'
+      SSESpecification:
+        SSEEnabled: true
+
+  BedrockCreateClaimFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref CreateClaimFunction
+      Principal: bedrock.amazonaws.com
+
+  BedrockSendReminderFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref SendReminderFunction
+      Principal: bedrock.amazonaws.com
+
+  BedrockGatherEvidenceFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GatherEvidenceFunction
+      Principal: bedrock.amazonaws.com
+
+  # New Lambda Permissions for Lex
+  LexCreateClaimFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt CreateClaimFunction.Arn
+      Principal: lex.amazonaws.com
+      SourceArn: !Sub "arn:aws:lex:${AWS::Region}:${AWS::AccountId}:bot-alias/*"
+      
+  LexSendReminderFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt SendReminderFunction.Arn
+      Principal: lex.amazonaws.com
+      SourceArn: !Sub "arn:aws:lex:${AWS::Region}:${AWS::AccountId}:bot-alias/*"
+
+  LexGatherEvidenceFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt GatherEvidenceFunction.Arn
+      Principal: lex.amazonaws.com
+      SourceArn: !Sub "arn:aws:lex:${AWS::Region}:${AWS::AccountId}:bot-alias/*"
+
+  DataLoaderFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Lambda function to initially load the claims catalog.
+      FunctionName: !Sub ${AWS::StackName}-DDBDataLoader
+      Code:
+        S3Bucket: !Ref assetbkt
+        S3Key: agent-lambda/lambda_loader_deployment_package.zip
+      Runtime: python3.11
+      MemorySize: 256
+      Timeout: 20
+      Handler: index.lambda_handler
+      Layers:
+        - !Ref LayerCfnResponse
+      Role: !GetAtt lambdarole.Arn
+      Environment:
+        Variables:
+          EXISTING_CLAIMS_TABLE_NAME: !Ref ExistingClaimsTable
+
+  LoadPlanData:
+    Type: Custom::LoadDynamoDB
+    Properties:
+      ServiceToken: !GetAtt DataLoaderFunction.Arn
+
+  CreateClaimFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Bedrock Insurance agent create claim function
+      FunctionName: !Sub ${AWS::StackName}-CreateClaimFunction
+      Code:
+        S3Bucket: !Ref assetbkt
+        S3Key: agent-lambda/lambda_create_claim.zip
+      Runtime: python3.11
+      MemorySize: 512
+      Timeout: 30
+      Handler: create_claim.lambda_handler
+      Layers:
+        - !Ref LayerBedrockAgent
+      Role: !GetAtt lambdarole.Arn
+      Architectures:
+        - arm64
+      Environment:
+        Variables:
+          CUSTOMER_WEBSITE_URL: upload_evidence.aws.dev
+          EXISTING_CLAIMS_TABLE_NAME: !Ref ExistingClaimsTable
+          SNS_TOPIC_ARN: !Ref SNSTopic
+
+  SendReminderFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Bedrock Insurance agent send reminder function
+      FunctionName: !Sub ${AWS::StackName}-SendReminderFunction
+      Code:
+        S3Bucket: !Ref assetbkt
+        S3Key: agent-lambda/lambda_send_reminder.zip
+      Runtime: python3.11
+      MemorySize: 512
+      Timeout: 30
+      Handler: send_reminder.lambda_handler
+      Layers:
+        - !Ref LayerBedrockAgent
+      Role: !GetAtt lambdarole.Arn
+      Architectures:
+        - arm64
+      Environment:
+        Variables:
+          EXISTING_CLAIMS_TABLE_NAME: !Ref ExistingClaimsTable
+          SNS_TOPIC_ARN: !Ref SNSTopic
+
+  GatherEvidenceFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Bedrock Insurance agent gather evidence function.
+      FunctionName: !Sub ${AWS::StackName}-GatherEvidenceFunction
+      Code:
+        S3Bucket: !Ref assetbkt
+        S3Key: agent-lambda/lambda_gather_evidence.zip
+      Runtime: python3.11
+      MemorySize: 512
+      Timeout: 30
+      Handler: gather_evidence.lambda_handler
+      Layers:
+        - !Ref LayerBedrockAgent
+      Role: !GetAtt lambdarole.Arn
+      Architectures:
+        - arm64
+      Environment:
+        Variables:
+          CUSTOMER_WEBSITE_URL: upload_evidence.aws.dev
+          SNS_TOPIC_ARN: !Ref SNSTopic
+
+  SNSTopic:
+    Type: AWS::SNS::Topic
+
+  SNSSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: sampleemail@sampleorg.com
+      Protocol: email
+      TopicArn: !Ref SNSTopic
+      
+Outputs:
+  BedrockWorkshopS3Bucket:
+    Description: Name of Amazon S3 Bucket for Amazon Bedrock Zero to Hero Workshop
+    Value: !Ref assetbkt
+  LexBotName:
+    Description: The Name of the provisioned Amazon Lex Bot.
+    Value: !Ref InsuranceClaimBot

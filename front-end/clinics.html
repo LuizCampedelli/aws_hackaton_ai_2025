@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dentistas - IAmigos Dental</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/clinics.css" />
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="header">
+      <div class="container">
+        <div class="logo-section">
+          <a href="index.html" class="logo-link">
+            <img src="assets/images/logo.png" alt="IAmigos Dental" class="logo" />
+          </a>
+          <span class="logo-text">IAmigos Dental</span>
+        </div>
+
+        <nav class="nav">
+          <a href="index.html" class="nav-link">Início</a>
+          <a href="chatbot.html" class="nav-link">Pré-Aprovação</a>
+          <a href="upload.html" class="nav-link">Reembolso</a>
+          <a href="clinics.html" class="nav-link active">Dentistas</a>
+          <a href="status.html" class="nav-link">Meus Pedidos</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="container">
+        <div class="page-header">
+          <h1>Encontre Dentistas Parceiros</h1>
+          <p class="page-description">Encontre consultórios dentais que aceitam seu plano perto de você</p>
+        </div>
+
+        <div class="clinics-layout">
+          <!-- Filtros -->
+          <aside class="clinics-filters">
+            <div class="filters-card">
+              <h3>🔍 Filtros</h3>
+
+              <div class="filter-group">
+                <label for="locationFilter" class="form-label">Localização (CEP)</label>
+                <input
+                  type="text"
+                  id="locationFilter"
+                  class="form-control"
+                  placeholder="00000-000"
+                  data-mask="cep"
+                  maxlength="9"
+                />
+              </div>
+
+              <div class="filter-group">
+                <label for="planFilter" class="form-label">Plano Dental</label>
+                <select id="planFilter" class="form-control">
+                  <option value="">Todos os planos</option>
+                  <option value="basic">Basic</option>
+                  <option value="premium">Premium</option>
+                  <option value="vip">VIP</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <label for="specialtyFilter" class="form-label">Especialidade</label>
+                <select id="specialtyFilter" class="form-control">
+                  <option value="">Todas as especialidades</option>
+                  <option value="geral">Clínico Geral</option>
+                  <option value="ortodontia">Ortodontia</option>
+                  <option value="implante">Implante</option>
+                  <option value="endodontia">Endodontia</option>
+                  <option value="periodontia">Periodontia</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <label class="form-label">Avaliação Mínima</label>
+                <div class="rating-filter">
+                  <button class="rating-option active" data-rating="0">Todas</button>
+                  <button class="rating-option" data-rating="4">4+ ⭐</button>
+                  <button class="rating-option" data-rating="4.5">4.5+ ⭐</button>
+                </div>
+              </div>
+
+              <div class="filter-actions">
+                <button class="btn btn-primary" onclick="searchClinics()">🔍 Buscar Dentistas</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">🔄 Limpar</button>
+              </div>
+            </div>
+
+            <div class="info-card">
+              <h3>💡 Dicas</h3>
+              <ul class="tips-list">
+                <li>Use seu CEP para encontrar os mais próximos</li>
+                <li>Verifique as especialidades disponíveis</li>
+                <li>Confirme o horário de funcionamento</li>
+                <li>Leia as avaliações de outros pacientes</li>
+              </ul>
+            </div>
+          </aside>
+
+          <!-- Lista de Clínicas -->
+          <div class="clinics-main">
+            <div class="clinics-header">
+              <div class="results-info">
+                <h2 id="resultsCount">Encontre dentistas próximos</h2>
+                <p id="resultsDescription">Use os filtros ao lado para buscar</p>
+              </div>
+              <div class="view-controls">
+                <button class="view-btn active" data-view="grid" onclick="changeView('grid')">⏹️ Grid</button>
+                <button class="view-btn" data-view="list" onclick="changeView('list')">📋 Lista</button>
+              </div>
+            </div>
+
+            <!-- Estado de Carregamento -->
+            <div class="loading-state" id="loadingState">
+              <div class="loading-content">
+                <div class="loading-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <p>Buscando dentistas...</p>
+              </div>
+            </div>
+
+            <!-- Lista de Resultados -->
+            <div class="clinics-results" id="clinicsResults">
+              <div class="no-results" id="noResults">
+                <div class="no-results-icon">🔍</div>
+                <h3>Nenhum dentista encontrado</h3>
+                <p>Experimente ajustar os filtros de busca</p>
+                <button class="btn btn-primary" onclick="resetFilters()">🔄 Limpar Filtros</button>
+              </div>
+
+              <!-- Os resultados serão inseridos aqui via JavaScript -->
+            </div>
+
+            <!-- Mapa (placeholder) -->
+            <div class="map-section" id="mapSection">
+              <div class="map-placeholder">
+                <div class="map-icon">🗺️</div>
+                <h4>Visualização do Mapa</h4>
+                <p>Integração com Google Maps disponível em versões futuras</p>
+                <button class="btn btn-outline" onclick="openGoogleMaps()">📍 Abrir Google Maps</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Modal de Detalhes da Clínica -->
+    <div class="modal-overlay" id="clinicModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalClinicName">Nome da Clínica</h3>
+          <button class="btn-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body" id="modalClinicDetails">
+          <!-- Detalhes serão preenchidos via JavaScript -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-section">
+            <h4>IAmigos Dental</h4>
+            <p>Soluções inovadoras para seguros dentais</p>
+          </div>
+          <div class="footer-section">
+            <h4>Suporte</h4>
+            <p>suporte@iamigos.com</p>
+            <p>(11) 9999-9999</p>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/lex-integration.js"></script>
+    <script src="assets/js/clinics.js"></script>
+  </body>
+</html>
+<!DOCTYPE html>

@@ -1,0 +1,11 @@
+{
+  "currentIntent": {
+    "name": "BuscarDentistas",
+    "slots": {
+      "localizacao": "01234-567",
+      "planoDental": "premium",
+      "especialidade": "ortodontia"
+    }
+  },
+  "sessionAttributes": {}
+}

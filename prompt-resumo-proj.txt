@@ -1,0 +1,205 @@
+
+Prompt:
+
+Você é um consultor de desenvolvimento em nuvem, de apenas conselhos verificados em fontes confiáveis e documentações, caso não tenha certeza sobre alguma informação, diga diretamente e não assuma, foque sempre na segurança, custo, e escalabilidade. Monte uma arquitetura na nuvem da AWS, seguindo as melhores praticas recomendadas pelo framework well-architected. A arquitetura deve conter um bucket hosteando um site estático e um bucket de processamento, um API do API gateway para comunicação com o front-end, pelo menos uma fila SQS+DLQ para desacoplamento, pelo menos uma função lambda para o processamento no backend, todos os códigos gerados, para front e back-end devem ter logging estruturado e usar variáveis de ambiente sempre que possível, mas pode ter mais caso a arquitetura exija, uma tabela do dynamoDB para banco de dados, SNS para notificar os usuários e o dentista da consulta marcada, bedrock (para fazer a análise inicial e anamnese), Lex (interage com o cliente) e Textract (para retirar informações de documentos enviados), essa arquitetura está sujeita a alterações, então pode recomendar alternativas ou mudanças para arquitetura. A lógica é: somos uma empresa fictícia chamada IAmigos, nos fornecemos soluções em nuvem para seguradoras. O objetivo dessa solução é resolver um problema de adesão aos planos de seguros dentais, estão havendo muitos problemas com dados sendo registrados errados e demora no processamento de sinistros. A solução envolve um aplicativo/site, hosteado na nuvem AWS, usando serviços de IA para automatizar, agilizar e melhorar o processo. Fluxo, o usuário acessa o chatbot devido a um problema dental, assumamos uma dor de dente, o chat recebe o usuário, coleta as informações (nome, CPF, plano dental fictício, tier do plano dental, e perguntas de anamnese para o Bedrock, através desses sintomas, tentar retornar um possível prognóstico), após isso, utilizando esse prognostico o Bedrock vai tentar retornar uma pre-aprovação do serviço com o plano dental (podem ser que tenha uma mudança nos serviços após a avaliação do profissional, mas caso haja uma mudança, isso será tratado em uma consulta posterior) caso a pre-aprovação falhe devido a alguma impossibilidade ou erro, siga para o processo de encontrar consultórios próximos que aceitam o plano de saúde fictício. Deve haver também um fluxo de reembolso posterior a marcação da consulta para o caso de falha da pre-aprovação, um fluxo de reembolso, onde o usuário inclui uma foto da nota fiscal, o fluxo avalia as informações e retorna se o reembolso foi aprovado ou rejeitado pelo plano. Essas informações são registadas no DynamoDB. A intenção é que ao final do fluxo, o sistema retorne locais que aceitam o plano próximos do usuário, possível prognostico, resultado da pre-avaliação/fluxo de reembolso, e uma mensagem/email para o consultório com as informações pessoais + anamnese. Estruture sua resposta em visão geral, passos para implementação, sugestões de melhora, cálculo de preço aproximado da arquitetura. Caso alguma resposta daqui para frente atinja o limite de caracteres ou alguma outra limitação, explicite e divida a resposta em mais de uma mensagem. Caso precise alguma informação faltante, pergunte diretamente. 
+
+
+CONTEXTO COMPLETO - IAMIGOS DENTAL MVP (FASE 1)
+
+EMPRESA: IAmigos - Soluções em nuvem para seguradoras
+PROBLEMA: Baixa adesão e processamento lento de seguros dentais
+OBJETIVO: MVP com automação via AWS + IA para pré-aprovações e reembolsos
+
+ARQUITETURA AWS MVP - SOMENTE LEX:
+• FRONTEND: S3 + CloudFront (site estático HTML/CSS/JS)
+• BACKEND: Amazon Lex (chatbot) → Lambda Orchestrador (monolítica)
+• BANCO: DynamoDB com tabela única + GSI
+• IA/ML: Bedrock (Titan), Textract, Lex
+• NOTIFICAÇÕES: SNS (2 tópicos - clientes/dentistas)
+• RASTREAMENTO: lexSessionId único cross-service
+
+DECISÕES ARQUITETURAIS MVP:
+• COMUNICAÇÃO: 100% via Lex - frontend só conversa com Lex
+• PROCESSAMENTO: 100% síncrono - usuário espera Textract terminar
+• AUTENTICAÇÃO: CPF como identificador (sem Cognito no MVP)
+• CONSULTÓRIOS: DynamoDB com dados fictícios (sem Google Maps)
+• EXCLUSÕES MVP: API Gateway, SQS, Lambdas separadas
+
+COMPONENTES IMPLEMENTADOS:
+
+1. LAMBDA ORQUESTRADORA (handler principal)
+   - lambda_handler: Processa APENAS eventos Lex
+   - process_lex_event: Roteamento de intenções Lex
+
+2. DENTALCLAIMSPROCESSOR (classe central monolítica)
+   - __init__: Inicializa todos os managers (incluindo SQS não utilizado)
+   - _validate_environment: Valida variáveis AWS
+   - process_lex_event: Orquestra fluxo completo via Lex
+   - _process_pre_approval: Fluxo pré-aprovação (Bedrock + validação)
+   - _process_reimbursement: Fluxo reembolso (Textract síncrono)
+   - _process_dentist_search: Busca consultórios (DynamoDB)
+
+3. MANAGERS ESPECIALIZADOS:
+   • AIAnalyzer (Bedrock Titan)
+     - analyze_symptoms: Análise sintomas + prognóstico
+     - _build_titan_prompt: Prompt engineering dental
+     - _parse_titan_response: Extrai JSON da resposta
+
+   • DocumentProcessor (Textract + S3) 
+     - process_receipt: Analisa NF/recibos (SÍNCRONO)
+     - _extract_expense_data: Extrai dados estruturados
+     - _extract_currency_value: Processa valores monetários
+
+   • ClaimValidator (Regras de negócio)
+     - validate_pre_approval_slots: Valida dados pré-aprovação
+     - validate_reimbursement_slots: Valida dados reembolso
+     - validate_reimbursement_data: Compara documento vs declarado
+     - check_plan_coverage: Regras cobertura por plano
+
+   • DataManager (DynamoDB)
+     - save_pre_approval_claim: Persiste pré-aprovação
+     - save_reimbursement_claim: Persiste reembolso  
+     - save_search_record: Persiste buscas
+
+   • NotificationManager (SNS)
+     - send_approval_notifications: Notifica cliente+dentista
+     - send_reimbursement_notification: Notifica apenas cliente
+     - _build_*_message: Templates em português
+
+FLUXOS DE NEGÓCIO MVP:
+
+1. PRÉ-APROVAÇÃO (conversacional):
+   Frontend → Lex → Lambda → Bedrock → Validador → DynamoDB → SNS → Lex → Frontend
+
+2. REEMBOLSO (síncrono):
+   Frontend → Lex → Lambda → Textract → Validador → DynamoDB → SNS → Lex → Frontend
+
+3. BUSCA DENTISTAS:
+   Frontend → Lex → Lambda → DynamoDB → Lex → Frontend
+
+FRONTEND HTML/CSS (100% LEX):
+• index.html - Dashboard principal
+• chatbot.html - Interface Lex pré-aprovação  
+• upload.html - Interface reembolsos (via Lex)
+• clinics.html - Busca dentistas (via Lex)
+• status.html - Acompanhamento (via Lex)
+
+VARIÁVEIS AMBIENTE:
+DYNAMO_TABLE, DOCUMENTS_BUCKET, SNS_TOPIC_CLIENTES, 
+SNS_TOPIC_DENTISTAS, BEDROCK_MODEL_ID, SQS_QUEUE_URL (não usado)
+
+PRÓXIMOS PASSOS IMEDIATOS:
+1. Completar frontend HTML/CSS (upload.html, clinics.html, status.html)
+2. Configurar Amazon Lex com intents
+3. Deploy infraestrutura Terraform
+4. Testes integrados end-to-end
+
+MELHORIAS FUTURAS (FASE 2):
+• API Gateway para endpoints específicos
+• SQS para processamento assíncrono  
+• Separação de Lambdas
+• Amazon Cognito para autenticação
+• Google Maps integration
+
+MODO OPERACIONAL MVP:
+• Frontend → SOMENTE Lex
+• Processamento → 100% síncrono  
+• Foco → Experiência usuário dental simplificada
+• Validação → Mercado rápido com custo mínimo
+
+MODO OPERACIONAL: Enviar componentes por vez, validar cada passo, focar segurança/custo/escalabilidade.
+
+---------------------------------------------------------------------------------------------------------------------------------------
+
+
+📋 CHECKLIST COMPLETO DO PROJETO
+✅ JÁ REALIZADOS
+ANÁLISE E PLANEJAMENTO
+
+Mapeamento completo dos requisitos de negócio
+
+Definição da arquitetura AWS
+
+Análise de custos estimados (~$68-133/mês)
+
+Identificação de melhorias de segurança e performance
+
+CÓDIGO BACKEND
+
+Lambda Orquestradora (handler principal)
+
+DentalClaimsProcessor (classe central)
+
+AIAnalyzer (Bedrock integration)
+
+DocumentProcessor (Textract integration)
+
+ClaimValidator (regras de negócio)
+
+DataManager (DynamoDB operations)
+
+NotificationManager (SNS integration)
+
+INFRAESTRUTURA
+
+Template Terraform completo
+
+Políticas IAM granularizadas
+
+Estrutura de variáveis de ambiente
+
+🚧 PRÓXIMOS PASSOS (EM ANDAMENTO)
+INFRAESTRUTURA
+
+Configurar Amazon Lex (chatbot)
+
+Implementar CloudFront + S3 para frontend
+
+Configurar API Gateway endpoints
+
+Implementar SQS + DLQ properly
+
+Criar Lambda Processor separada
+
+BACKEND
+
+Implementar fluxo assíncrono com SQS
+
+Adicionar retry logic com exponential backoff
+
+Implementar cache para consultas frequentes
+
+Adicionar validação de documentos (formatos suportados)
+
+FRONTEND ← PRÓXIMO FOCO
+
+Criar interface web estática (React/Vue)
+
+Integrar com Amazon Lex Web UI
+
+Componente de upload de documentos
+
+Dashboard de status de claims
+
+---------------------------------------------------------------------------------------------------------------------------------------
+
+Para PRÉ-APROVAÇÃO:
+text
+1. User → Frontend → Lex: "Estou com dor de dente"
+2. Lex → Lambda: Evento Lex com intent "SolicitarPreAprovacao"  
+3. Lambda → AIAnalyzer: analyze_symptoms()
+4. Lambda → ClaimValidator: check_plan_coverage()
+5. Lambda → DataManager: save_pre_approval_claim()
+6. Lambda → NotificationManager: send_approval_notifications()
+7. Lambda → Lex: Resposta formatada
+8. Lex → Frontend: Mensagem final
+Para REEMBOLSO (ATUAL - SÍNCRONO):
+text
+1. User → Frontend → Lex: "Quero reembolso" + documentKey
+2. Lex → Lambda: Evento Lex com intent "SolicitarReembolso"
+3. Lambda → DocumentProcessor: process_receipt()  ← SÍNCRONO!
+4. Lambda → ClaimValidator: validate_reimbursement_data()
+5. Lambda → DataManager: save_reimbursement_claim()
+6. Lambda → NotificationManager: send_reimbursement_notification()
+7. Lambda → Lex: Resposta formatada
+8. Lex → Frontend: Resultado do reembolso

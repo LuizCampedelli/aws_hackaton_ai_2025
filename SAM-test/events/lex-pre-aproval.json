@@ -1,0 +1,26 @@
+{
+  "sessionState": {
+    "intent": {
+      "name": "SolicitarPreAprovacao",
+      "slots": {
+        "sintomas": {
+          "value": {
+            "interpretedValue": "dor de dente"
+          }
+        },
+        "planoDental": {
+          "value": {
+            "interpretedValue": "premium"
+          }
+        },
+        "localizacao": {
+          "value": {
+            "interpretedValue": "01234-567"
+          }
+        }
+      },
+      "state": "InProgress"
+    }
+  },
+  "inputTranscript": "Estou com dor de dente"
+}
