@@ -51,7 +51,7 @@ Pedro Paulo Da Silva
 - **Armazenamento:** S3  
 - **Notificações:** Amazon SNS
 
-![WhatsApp Image 2025-10-11 at 22 26 16](https://github.com/user-attachments/assets/158974e9-c787-4f61-8eb7-c40ed3b8da7d)
+![architetura](https://github.com/user-attachments/assets/51f00b64-4fc6-4da1-a847-604cbbc6b33d)
 
 ---
 
